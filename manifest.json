@@ -3,7 +3,7 @@
   "loading_order": -100,
   "js": "index.js",
   "author": "Independent compatibility package",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "auto_update": false,
   "hooks": {
     "activate": "activate",
