@@ -2,6 +2,43 @@ const THIRD_PARTY_TEMPLATE_PATH = /^\/scripts\/extensions\/third-party\/.+\.html
 const TAURI_IPC_SIGNATURE = /@typedef\s+\{\{\s*callback:\s*string,\s*error:\s*string,\s*data:\s*\*\s*\}\}/;
 const SCRIPT_TAG = /<script\b[^>]*>[\s\S]*?<\/script\s*>/gi;
 
+function isAndroidTauriRuntime(scope) {
+    try {
+        return /android/i.test(scope.navigator?.userAgent ?? '')
+            && new URL(scope.location?.href).hostname === 'tauri.localhost'
+            && !!scope.__TAURI_INTERNALS__;
+    } catch {
+        return false;
+    }
+}
+
+/** Keep assigned polyfills callable while preventing for-in from treating them as array elements. */
+export function hideEnumerableArrayPrototypeKeys(prototype) {
+    const changes = [];
+    if (prototype) {
+        for (const key of Object.keys(prototype)) {
+            const descriptor = Object.getOwnPropertyDescriptor(prototype, key);
+            if (!descriptor?.enumerable || !descriptor.configurable) continue;
+            Object.defineProperty(prototype, key, { ...descriptor, enumerable: false });
+            changes.push([key, descriptor]);
+        }
+    }
+
+    const restore = () => {
+        for (const [key, descriptor] of changes) {
+            const current = Object.getOwnPropertyDescriptor(prototype, key);
+            if (current?.enumerable === false
+                && current.value === descriptor.value
+                && current.get === descriptor.get
+                && current.set === descriptor.set) {
+                Object.defineProperty(prototype, key, descriptor);
+            }
+        }
+    };
+    restore.changedKeys = changes.map(([key]) => key);
+    return restore;
+}
+
 /** Remove only the injected Tauri IPC script identified in the Android error log. */
 export function stripInjectedTauriScript(html) {
     let changed = false;
@@ -29,10 +66,7 @@ function isTargetTemplate(input, scope) {
 
 /** Install a narrow fetch wrapper before other third-party extensions load. */
 export function installTemplateFetchCompat(scope = globalThis) {
-    if (!/android/i.test(scope.navigator?.userAgent ?? '')
-        || new URL(scope.location?.href ?? 'http://invalid/').hostname !== 'tauri.localhost'
-        || !scope.__TAURI_INTERNALS__
-        || typeof scope.fetch !== 'function') {
+    if (!isAndroidTauriRuntime(scope) || typeof scope.fetch !== 'function') {
         return () => {};
     }
 
@@ -69,12 +103,27 @@ export function installTemplateFetchCompat(scope = globalThis) {
 }
 
 let restoreFetch = null;
+let restoreArrayPrototype = null;
 
-export function activate() {
-    restoreFetch ??= installTemplateFetchCompat();
+export function activate(scope = globalThis) {
+    if (restoreFetch) return;
+    restoreFetch = installTemplateFetchCompat(scope);
+    if (!isAndroidTauriRuntime(scope)) return;
+
+    restoreArrayPrototype = hideEnumerableArrayPrototypeKeys(scope.Array?.prototype);
+    scope.console?.info?.('[TT Template Compat] Hidden enumerable Array.prototype keys:', restoreArrayPrototype.changedKeys);
+    if (typeof scope.Array === 'function') {
+        const remaining = [];
+        for (const key in new scope.Array()) remaining.push(key);
+        if (remaining.length) {
+            scope.console?.warn?.('[TT Template Compat] Remaining inherited enumerable array keys:', remaining);
+        }
+    }
 }
 
 export function deactivate() {
+    restoreArrayPrototype?.();
+    restoreArrayPrototype = null;
     restoreFetch?.();
     restoreFetch = null;
 }
