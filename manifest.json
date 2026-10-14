@@ -1,0 +1,14 @@
+{
+  "display_name": "TT Android 模板兼容",
+  "loading_order": -100,
+  "js": "index.js",
+  "author": "Independent compatibility package",
+  "version": "0.1.0",
+  "auto_update": false,
+  "hooks": {
+    "activate": "activate",
+    "disable": "deactivate",
+    "delete": "deactivate"
+  }
+}
+
