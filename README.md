@@ -21,8 +21,9 @@ https://github.com/yu555-ux/TT-
 ```
 
 安装时 TT 会从本仓库根目录读取 `manifest.json` 和 `index.js`。
-3. 确认本扩展和 `ST-Prompt-Template` 都已启用，完整退出并重新打开 TT。
-4. 打开扩展设置页面，检查“提示词模板”设置区域是否出现。它原本显示在扩展设置里，不一定有聊天栏按钮。
+
+1. 确认本扩展和 `ST-Prompt-Template` 都已启用，完整退出并重新打开 TT。
+2. 打开扩展设置页面，检查“提示词模板”设置区域是否出现。它原本显示在扩展设置里，不一定有聊天栏按钮。
 
 安装后如仍报 `Error rendering template`，请复制新的前端日志。只有日志中出现 `[TT Template Compat] Removed injected Tauri IPC script from`，才表示本扩展确实处理到了对应响应。若没有这条记录，需要核对手机返回的实际 HTML 内容或扩展加载顺序。
 
